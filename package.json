@@ -12,14 +12,16 @@
     "format": "prettier --write \"apps/**/*.ts\" \"libs/**/*.ts\"",
     "start": "nest start",
     "start:dev": "nest start --watch",
+    "start:orders": "nest start orders-service --watch",
+    "start:delivery": "nest start delivery-service --watch",
     "start:debug": "nest start --debug --watch",
-    "start:prod": "node dist/apps/back/main",
-    "lint": "oxlint src/ test/",
+    "start:prod": "node dist/apps/orders-service/main",
+    "lint": "oxlint apps/",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:cov": "vitest run --coverage",
     "test:debug": "vitest --inspect-brk --no-file-parallelism",
-    "test:e2e": "viapps/back/test run --config ./vitest.config.e2e.ts"
+    "test:e2e": "vitest run --config ./vitest.config.e2e.ts"
   },
   "dependencies": {
     "@nestjs/common": "^12.0.1",

@@ -3,6 +3,8 @@ import { DeliveryServiceModule } from './delivery-service.module.js';
 
 async function bootstrap() {
   const app = await NestFactory.create(DeliveryServiceModule);
-  await app.listen(process.env.port ?? 3000);
+  const port = process.env.PORT ?? 3002;
+  await app.listen(port);
+  console.log(`[DeliveryService] Running on port ${port}`);
 }
 await bootstrap();

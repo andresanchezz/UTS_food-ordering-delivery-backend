@@ -25,7 +25,7 @@
   "files": [],
   "references": [
     {
-      "path": "./apps/back/tsconfig.app.json"
+      "path": "./apps/orders-service/tsconfig.app.json"
     },
     {
       "path": "./apps/delivery-service/tsconfig.app.json"
