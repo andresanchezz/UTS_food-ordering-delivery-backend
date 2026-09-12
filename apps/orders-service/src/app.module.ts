@@ -6,8 +6,7 @@ import { Product } from './entities/product.entity.js';
 import { Order } from './entities/order.entity.js';
 import { OrderItem } from './entities/order-item.entity.js';
 import { EventBroker } from './broker/event-broker.js';
-import { OrdersGateway } from './gateway/orders.gateway.js';
-import { WebSocketNotifierSubscriber } from './broker/subscribers/websocket-notifier.subscriber.js';
+import { KitchenNotifierSubscriber } from './broker/subscribers/kitchen-notifier.subscriber.js';
 import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
 
 @Module({
@@ -24,8 +23,7 @@ import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-disp
   providers: [
     AppService,
     EventBroker,
-    OrdersGateway,
-    WebSocketNotifierSubscriber,
+    KitchenNotifierSubscriber,
     DeliveryDispatcherSubscriber,
   ],
 })

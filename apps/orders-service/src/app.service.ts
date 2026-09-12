@@ -7,7 +7,7 @@ import { OrderItem } from './entities/order-item.entity.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
 import { EventBroker } from './broker/event-broker.js';
-import { WebSocketNotifierSubscriber } from './broker/subscribers/websocket-notifier.subscriber.js';
+import { KitchenNotifierSubscriber } from './broker/subscribers/kitchen-notifier.subscriber.js';
 import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
 
 @Injectable()
@@ -20,17 +20,17 @@ export class AppService implements OnModuleInit {
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
     private readonly eventBroker: EventBroker,
-    private readonly wsNotifier: WebSocketNotifierSubscriber,
+    private readonly kitchenNotifier: KitchenNotifierSubscriber,
     private readonly deliveryDispatcher: DeliveryDispatcherSubscriber,
   ) {}
 
   async onModuleInit() {
-    // 1. Suscribir observadores al EventBroker
-    this.eventBroker.subscribe('order.created', this.wsNotifier);
+    // Suscribir observadores al EventBroker
+    this.eventBroker.subscribe('order.created', this.kitchenNotifier);
     this.eventBroker.subscribe('order.created', this.deliveryDispatcher);
-    this.eventBroker.subscribe('order.status_updated', this.wsNotifier);
+    this.eventBroker.subscribe('order.status_updated', this.kitchenNotifier);
 
-    // 2. Datos iniciales del menu
+    // Datos iniciales del menu
     const count = await this.productRepo.count();
     if (count === 0) {
       await this.productRepo.save([
@@ -102,7 +102,7 @@ export class AppService implements OnModuleInit {
 
     const savedOrder = await this.orderRepo.save(order);
 
-    // Publicar evento en el EventBroker (Desacoplado)
+    // Publicar evento en el EventBroker (Desacoplado de la persistencia)
     this.eventBroker.publish('order.created', savedOrder);
 
     return savedOrder;
@@ -113,7 +113,7 @@ export class AppService implements OnModuleInit {
     order.status = status;
     const updatedOrder = await this.orderRepo.save(order);
 
-    // Publicar evento en el EventBroker (Notifica en vivo al frontend)
+    // Publicar evento en el EventBroker
     this.eventBroker.publish('order.status_updated', updatedOrder);
 
     return updatedOrder;
