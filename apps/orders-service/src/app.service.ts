@@ -2,10 +2,13 @@ import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity.js';
-import { Order } from './entities/order.entity.js';
+import { Order, OrderStatus } from './entities/order.entity.js';
 import { OrderItem } from './entities/order-item.entity.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
+import { EventBroker } from './broker/event-broker.js';
+import { WebSocketNotifierSubscriber } from './broker/subscribers/websocket-notifier.subscriber.js';
+import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -16,9 +19,18 @@ export class AppService implements OnModuleInit {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
+    private readonly eventBroker: EventBroker,
+    private readonly wsNotifier: WebSocketNotifierSubscriber,
+    private readonly deliveryDispatcher: DeliveryDispatcherSubscriber,
   ) {}
 
   async onModuleInit() {
+    // 1. Suscribir observadores al EventBroker
+    this.eventBroker.subscribe('order.created', this.wsNotifier);
+    this.eventBroker.subscribe('order.created', this.deliveryDispatcher);
+    this.eventBroker.subscribe('order.status_updated', this.wsNotifier);
+
+    // 2. Datos iniciales del menu
     const count = await this.productRepo.count();
     if (count === 0) {
       await this.productRepo.save([
@@ -88,6 +100,22 @@ export class AppService implements OnModuleInit {
       items: orderItems,
     });
 
-    return this.orderRepo.save(order);
+    const savedOrder = await this.orderRepo.save(order);
+
+    // Publicar evento en el EventBroker (Desacoplado)
+    this.eventBroker.publish('order.created', savedOrder);
+
+    return savedOrder;
+  }
+
+  async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
+    const order = await this.getOrderById(id);
+    order.status = status;
+    const updatedOrder = await this.orderRepo.save(order);
+
+    // Publicar evento en el EventBroker (Notifica en vivo al frontend)
+    this.eventBroker.publish('order.status_updated', updatedOrder);
+
+    return updatedOrder;
   }
 }

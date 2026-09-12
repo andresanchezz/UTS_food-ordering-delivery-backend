@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Param } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
 import { AppService } from './app.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
+import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
 
 @Controller()
 export class AppController {
@@ -30,5 +31,13 @@ export class AppController {
   @Post('orders')
   createOrder(@Body() dto: CreateOrderDto) {
     return this.appService.createOrder(dto);
+  }
+
+  @Patch('orders/:id/status')
+  updateOrderStatus(
+    @Param('id') id: string,
+    @Body() dto: UpdateOrderStatusDto,
+  ) {
+    return this.appService.updateOrderStatus(id, dto.status);
   }
 }
