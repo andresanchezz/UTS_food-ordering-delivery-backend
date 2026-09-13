@@ -90,8 +90,22 @@ export class DeliveryServiceService implements OnModuleInit {
     delivery.status = status;
     const updatedDelivery = await this.deliveryRepo.save(delivery);
 
-    // Empujar cambio de estado por WebSocket
+    // Empujar cambio de estado por WebSocket al panel de repartidores
     this.deliveryGateway.emitDeliveryStatusChanged(updatedDelivery);
+
+    // Si el domicilio fue entregado, sincronizar de vuelta con orders-service
+    if (status === 'ENTREGADO' && delivery.orderId) {
+      try {
+        console.log(`[DeliveryService] 📦 Notificando entrega a orders-service para pedido #${delivery.orderId}`);
+        await fetch(`http://localhost:3001/orders/${delivery.orderId}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status: 'ENTREGADO' }),
+        });
+      } catch (err: any) {
+        console.warn(`[DeliveryService] ⚠️ No se pudo sincronizar entrega con orders-service: ${err.message}`);
+      }
+    }
 
     return updatedDelivery;
   }
