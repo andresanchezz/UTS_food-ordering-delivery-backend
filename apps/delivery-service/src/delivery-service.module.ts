@@ -4,6 +4,7 @@ import { DeliveryServiceController } from './delivery-service.controller.js';
 import { DeliveryServiceService } from './delivery-service.service.js';
 import { Delivery } from './entities/delivery.entity.js';
 import { DeliveryZone } from './entities/delivery-zone.entity.js';
+import { DeliveryGateway } from './gateway/delivery.gateway.js';
 
 @Module({
   imports: [
@@ -16,6 +17,6 @@ import { DeliveryZone } from './entities/delivery-zone.entity.js';
     TypeOrmModule.forFeature([Delivery, DeliveryZone]),
   ],
   controllers: [DeliveryServiceController],
-  providers: [DeliveryServiceService],
+  providers: [DeliveryServiceService, DeliveryGateway],
 })
 export class DeliveryServiceModule {}

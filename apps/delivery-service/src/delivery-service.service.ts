@@ -1,10 +1,11 @@
 import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Delivery, CalculationStrategy } from './entities/delivery.entity.js';
+import { Delivery, DeliveryStatus, CalculationStrategy } from './entities/delivery.entity.js';
 import { DeliveryZone } from './entities/delivery-zone.entity.js';
 import { CalculateDeliveryDto } from './dto/calculate-delivery.dto.js';
 import { CreateDeliveryDto } from './dto/create-delivery.dto.js';
+import { DeliveryGateway } from './gateway/delivery.gateway.js';
 
 @Injectable()
 export class DeliveryServiceService implements OnModuleInit {
@@ -13,6 +14,7 @@ export class DeliveryServiceService implements OnModuleInit {
     private readonly deliveryRepo: Repository<Delivery>,
     @InjectRepository(DeliveryZone)
     private readonly zoneRepo: Repository<DeliveryZone>,
+    private readonly deliveryGateway: DeliveryGateway,
   ) {}
 
   async onModuleInit() {
@@ -63,7 +65,12 @@ export class DeliveryServiceService implements OnModuleInit {
       status: 'ASIGNADO',
     });
 
-    return this.deliveryRepo.save(delivery);
+    const savedDelivery = await this.deliveryRepo.save(delivery);
+
+    // Empujar evento por WebSocket al panel de repartidores
+    this.deliveryGateway.emitNewDelivery(savedDelivery);
+
+    return savedDelivery;
   }
 
   getDeliveries(): Promise<Delivery[]> {
@@ -76,5 +83,16 @@ export class DeliveryServiceService implements OnModuleInit {
       throw new NotFoundException(`Domicilio ${id} no encontrado`);
     }
     return delivery;
+  }
+
+  async updateDeliveryStatus(id: string, status: DeliveryStatus): Promise<Delivery> {
+    const delivery = await this.getDeliveryById(id);
+    delivery.status = status;
+    const updatedDelivery = await this.deliveryRepo.save(delivery);
+
+    // Empujar cambio de estado por WebSocket
+    this.deliveryGateway.emitDeliveryStatusChanged(updatedDelivery);
+
+    return updatedDelivery;
   }
 }
