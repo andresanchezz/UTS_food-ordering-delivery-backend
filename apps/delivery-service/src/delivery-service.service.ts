@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Delivery, DeliveryStatus, CalculationStrategy } from './entities/delivery.entity.js';
@@ -50,6 +50,24 @@ export class DeliveryServiceService implements OnModuleInit {
   }
 
   async createDelivery(dto: CreateDeliveryDto): Promise<Delivery> {
+    // Validar con orders-service que el pedido esté realmente LISTO antes de generar el domicilio
+    if (dto.orderId) {
+      try {
+        const orderRes = await fetch(`http://localhost:3001/orders/${dto.orderId}`);
+        if (orderRes.ok) {
+          const order = (await orderRes.json()) as { status: string };
+          if (order.status !== 'LISTO') {
+            throw new BadRequestException(
+              `Bloqueo de despacho: El pedido #${dto.orderId.slice(0, 8)} tiene estado '${order.status}'. La cocina debe marcarlo en 'LISTO' antes de poder despacharlo al repartidor.`,
+            );
+          }
+        }
+      } catch (err: any) {
+        if (err instanceof BadRequestException) throw err;
+        console.warn(`[DeliveryService] ⚠️ No se pudo verificar estado previo en orders-service: ${err.message}`);
+      }
+    }
+
     const { fee, strategy } = await this.calculateFee({
       zoneName: dto.zoneName,
       distanceKm: dto.distanceKm,
@@ -87,6 +105,25 @@ export class DeliveryServiceService implements OnModuleInit {
 
   async updateDeliveryStatus(id: string, status: DeliveryStatus): Promise<Delivery> {
     const delivery = await this.getDeliveryById(id);
+
+    if (delivery.status === status) {
+      return delivery;
+    }
+
+    // Validar transición en delivery
+    const validTransitions: Record<DeliveryStatus, DeliveryStatus[]> = {
+      ASIGNADO: ['EN_RUTA'],
+      EN_RUTA: ['ENTREGADO'],
+      ENTREGADO: [],
+    };
+
+    const allowed = validTransitions[delivery.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transición inválida de domicilio: No se puede pasar de '${delivery.status}' a '${status}'.`,
+      );
+    }
+
     delivery.status = status;
     const updatedDelivery = await this.deliveryRepo.save(delivery);
 

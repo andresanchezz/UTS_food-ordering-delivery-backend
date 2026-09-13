@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException } from '@nestjs/common';
+import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity.js';
@@ -110,6 +110,29 @@ export class AppService implements OnModuleInit {
 
   async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
     const order = await this.getOrderById(id);
+
+    // Idempotencia si ya está en el mismo estado
+    if (order.status === status) {
+      return order;
+    }
+
+    // Máquina de estados del pedido
+    const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+      RECIBIDO: ['EN_PREPARACION', 'CANCELADO'],
+      EN_PREPARACION: ['LISTO', 'CANCELADO'],
+      LISTO: ['EN_CAMINO', 'CANCELADO'],
+      EN_CAMINO: ['ENTREGADO', 'CANCELADO'],
+      ENTREGADO: [],
+      CANCELADO: [],
+    };
+
+    const allowed = validTransitions[order.status] || [];
+    if (!allowed.includes(status)) {
+      throw new BadRequestException(
+        `Transición inválida: El pedido #${id.slice(0, 8)} está en '${order.status}' y no puede pasar a '${status}'. Debe seguir el flujo: [${allowed.join(', ')}].`,
+      );
+    }
+
     order.status = status;
     const updatedOrder = await this.orderRepo.save(order);
 
