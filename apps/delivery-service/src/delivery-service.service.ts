@@ -93,17 +93,20 @@ export class DeliveryServiceService implements OnModuleInit {
     // Empujar cambio de estado por WebSocket al panel de repartidores
     this.deliveryGateway.emitDeliveryStatusChanged(updatedDelivery);
 
-    // Si el domicilio fue entregado, sincronizar de vuelta con orders-service
-    if (status === 'ENTREGADO' && delivery.orderId) {
-      try {
-        console.log(`[DeliveryService] 📦 Notificando entrega a orders-service para pedido #${delivery.orderId}`);
-        await fetch(`http://localhost:3001/orders/${delivery.orderId}/status`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ status: 'ENTREGADO' }),
-        });
-      } catch (err: any) {
-        console.warn(`[DeliveryService] ⚠️ No se pudo sincronizar entrega con orders-service: ${err.message}`);
+    // Sincronizar de vuelta con orders-service según el avance de la entrega
+    if (delivery.orderId) {
+      const orderTargetStatus = status === 'EN_RUTA' ? 'EN_CAMINO' : status === 'ENTREGADO' ? 'ENTREGADO' : null;
+      if (orderTargetStatus) {
+        try {
+          console.log(`[DeliveryService] 📦 Sincronizando estado ${orderTargetStatus} a orders-service para pedido #${delivery.orderId}`);
+          await fetch(`http://localhost:3001/orders/${delivery.orderId}/status`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ status: orderTargetStatus }),
+          });
+        } catch (err: any) {
+          console.warn(`[DeliveryService] ⚠️ No se pudo sincronizar ${orderTargetStatus} con orders-service: ${err.message}`);
+        }
       }
     }
 

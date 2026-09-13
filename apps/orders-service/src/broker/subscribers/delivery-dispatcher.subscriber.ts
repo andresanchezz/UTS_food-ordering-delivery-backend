@@ -5,8 +5,8 @@ import { Order } from '../../entities/order.entity.js';
 @Injectable()
 export class DeliveryDispatcherSubscriber implements OrderSubscriber {
   async update(event: string, order: Order): Promise<void> {
-    if (event === 'order.created') {
-      console.log(`[DeliveryDispatcher] 🛵 Despacho automatico: Solicitando asignacion en delivery-service para pedido #${order.id}`);
+    if (event === 'order.ready') {
+      console.log(`[DeliveryDispatcher] 🛵 Pedido #${order.id} LISTO en cocina: Solicitando asignacion en delivery-service`);
       try {
         const response = await fetch('http://localhost:3002/deliveries', {
           method: 'POST',

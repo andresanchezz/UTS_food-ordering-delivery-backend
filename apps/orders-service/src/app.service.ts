@@ -27,7 +27,7 @@ export class AppService implements OnModuleInit {
   async onModuleInit() {
     // Suscribir observadores al EventBroker
     this.eventBroker.subscribe('order.created', this.kitchenNotifier);
-    this.eventBroker.subscribe('order.created', this.deliveryDispatcher);
+    this.eventBroker.subscribe('order.ready', this.deliveryDispatcher);
     this.eventBroker.subscribe('order.status_updated', this.kitchenNotifier);
 
     // Datos iniciales del menu
@@ -115,6 +115,11 @@ export class AppService implements OnModuleInit {
 
     // Publicar evento en el EventBroker
     this.eventBroker.publish('order.status_updated', updatedOrder);
+
+    // Cuando la cocina termina el pedido, notificar para despacho a delivery-service
+    if (status === 'LISTO') {
+      this.eventBroker.publish('order.ready', updatedOrder);
+    }
 
     return updatedOrder;
   }
