@@ -23,6 +23,11 @@ export class DeliveryServiceController {
     return this.deliveryService.getDeliveries();
   }
 
+  @Post('deliveries/reset')
+  resetDeliveriesData() {
+    return this.deliveryService.resetDeliveriesData();
+  }
+
   @Get('deliveries/:id')
   getDeliveryById(@Param('id') id: string) {
     return this.deliveryService.getDeliveryById(id);

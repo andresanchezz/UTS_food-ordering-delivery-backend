@@ -164,4 +164,13 @@ export class DeliveryServiceService implements OnModuleInit {
 
     return updatedDelivery;
   }
+
+  async resetDeliveriesData(): Promise<{ message: string; deletedDeliveries: number }> {
+    const deletedDeliveries = await this.deliveryRepo.count();
+    await this.deliveryRepo.clear();
+    return {
+      message: 'Base de datos de despachos reseteada con éxito',
+      deletedDeliveries,
+    };
+  }
 }

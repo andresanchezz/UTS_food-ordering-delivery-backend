@@ -146,4 +146,16 @@ export class AppService implements OnModuleInit {
 
     return updatedOrder;
   }
+
+  async resetOrdersData(): Promise<{ message: string; deletedOrders: number; deletedItems: number }> {
+    const deletedItems = await this.orderItemRepo.count();
+    await this.orderItemRepo.clear();
+    const deletedOrders = await this.orderRepo.count();
+    await this.orderRepo.clear();
+    return {
+      message: 'Base de datos de pedidos reseteada con éxito',
+      deletedOrders,
+      deletedItems,
+    };
+  }
 }

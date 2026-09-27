@@ -23,6 +23,11 @@ export class AppController {
     return this.appService.getOrders();
   }
 
+  @Post('orders/reset')
+  resetOrdersData() {
+    return this.appService.resetOrdersData();
+  }
+
   @Get('orders/:id')
   getOrderById(@Param('id') id: string) {
     return this.appService.getOrderById(id);
