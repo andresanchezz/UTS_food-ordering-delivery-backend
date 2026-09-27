@@ -6,6 +6,7 @@ import { DeliveryZone } from './entities/delivery-zone.entity.js';
 import { CalculateDeliveryDto } from './dto/calculate-delivery.dto.js';
 import { CreateDeliveryDto } from './dto/create-delivery.dto.js';
 import { DeliveryGateway } from './gateway/delivery.gateway.js';
+import { OsrmDistanceAdapter } from './adapter/osrm-distance.adapter.js';
 
 @Injectable()
 export class DeliveryServiceService implements OnModuleInit {
@@ -15,6 +16,7 @@ export class DeliveryServiceService implements OnModuleInit {
     @InjectRepository(DeliveryZone)
     private readonly zoneRepo: Repository<DeliveryZone>,
     private readonly deliveryGateway: DeliveryGateway,
+    private readonly distanceCalculator: OsrmDistanceAdapter,
   ) {}
 
   async onModuleInit() {
@@ -32,21 +34,28 @@ export class DeliveryServiceService implements OnModuleInit {
     return this.zoneRepo.find();
   }
 
-  async calculateFee(dto: CalculateDeliveryDto): Promise<{ fee: number; strategy: CalculationStrategy }> {
+  async calculateFee(dto: CalculateDeliveryDto): Promise<{ fee: number; strategy: CalculationStrategy; distanceKm: number }> {
     const zone = await this.zoneRepo.findOne({ where: { zoneName: dto.zoneName } });
     const baseFee = zone ? Number(zone.baseFee) : 4000;
-    const distanceCost = Number(dto.distanceKm ?? 0) * 1200;
+
+    // Si no se envía una distancia explícita, se calcula mediante el Adapter de OpenStreetMap
+    let resolvedDistance = dto.distanceKm;
+    if (resolvedDistance === undefined || resolvedDistance === null) {
+      resolvedDistance = await this.distanceCalculator.calculateDistanceKm('Restaurante', dto.zoneName);
+    }
+
+    const distanceCost = Number(resolvedDistance ?? 0) * 1200;
     let fee = baseFee + distanceCost;
     let strategy: CalculationStrategy = 'DISTANCE';
 
     if (dto.isRushHour) {
       fee = Math.round(fee * 1.25);
       strategy = 'RUSH_HOUR';
-    } else if (Number(dto.distanceKm) === 0) {
+    } else if (Number(resolvedDistance) === 0) {
       strategy = 'FLAT';
     }
 
-    return { fee, strategy };
+    return { fee, strategy, distanceKm: resolvedDistance };
   }
 
   async createDelivery(dto: CreateDeliveryDto): Promise<Delivery> {
@@ -68,16 +77,22 @@ export class DeliveryServiceService implements OnModuleInit {
       }
     }
 
+    // Si la distancia no viene fijada, se calcula mediante el Adapter
+    let distanceKm = dto.distanceKm;
+    if (distanceKm === undefined || distanceKm === null) {
+      distanceKm = await this.distanceCalculator.calculateDistanceKm('Restaurante', dto.zoneName);
+    }
+
     const { fee, strategy } = await this.calculateFee({
       zoneName: dto.zoneName,
-      distanceKm: dto.distanceKm,
+      distanceKm,
       isRushHour: dto.isRushHour,
     });
 
     const delivery = this.deliveryRepo.create({
       orderId: dto.orderId,
       driverName: dto.driverName ?? 'Repartidor Asignado',
-      distanceKm: dto.distanceKm,
+      distanceKm,
       fee,
       calculationStrategy: strategy,
       status: 'ASIGNADO',
