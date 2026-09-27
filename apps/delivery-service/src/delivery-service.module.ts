@@ -6,6 +6,7 @@ import { Delivery } from './entities/delivery.entity.js';
 import { DeliveryZone } from './entities/delivery-zone.entity.js';
 import { DeliveryGateway } from './gateway/delivery.gateway.js';
 import { OsrmDistanceAdapter } from './adapter/osrm-distance.adapter.js';
+import { OsrmRoutingService } from './adapter/osrm-routing.service.js';
 
 @Module({
   imports: [
@@ -18,6 +19,6 @@ import { OsrmDistanceAdapter } from './adapter/osrm-distance.adapter.js';
     TypeOrmModule.forFeature([Delivery, DeliveryZone]),
   ],
   controllers: [DeliveryServiceController],
-  providers: [DeliveryServiceService, DeliveryGateway, OsrmDistanceAdapter],
+  providers: [DeliveryServiceService, DeliveryGateway, OsrmRoutingService, OsrmDistanceAdapter],
 })
 export class DeliveryServiceModule {}

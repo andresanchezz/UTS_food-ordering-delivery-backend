@@ -1,10 +1,5 @@
-/**
- * Adaptee (Patrón GoF Adapter - Refactoring Guru).
- * Servicio externo que consume la API pública de OpenStreetMap (OSRM).
- * Su interfaz y modelo de datos son incompatibles con nuestro dominio:
- * - Exige coordenadas geográficas (longitud, latitud) en un formato de URL específico.
- * - Devuelve la distancia en metros dentro de una estructura de objetos anidados.
- */
+import { Injectable } from '@nestjs/common';
+
 export interface OsrmRouteResponse {
   code: string;
   routes: Array<{
@@ -13,6 +8,7 @@ export interface OsrmRouteResponse {
   }>;
 }
 
+@Injectable()
 export class OsrmRoutingService {
   private readonly baseUrl = 'https://router.project-osrm.org/route/v1/driving';
 
