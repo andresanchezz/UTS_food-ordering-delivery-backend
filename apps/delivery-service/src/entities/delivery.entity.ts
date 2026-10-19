@@ -1,7 +1,7 @@
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn } from 'typeorm';
 
 export type DeliveryStatus = 'ASIGNADO' | 'EN_RUTA' | 'ENTREGADO';
-export type CalculationStrategy = 'FLAT' | 'DISTANCE' | 'RUSH_HOUR';
+export type CalculationStrategy = 'FLAT' | 'DISTANCE' | 'RUSH_HOUR' | string;
 
 @Entity('deliveries')
 export class Delivery {
@@ -22,6 +22,15 @@ export class Delivery {
 
   @Column({ default: 'FLAT' })
   calculationStrategy: CalculationStrategy;
+
+  @Column({ default: 'STANDARD' })
+  deliveryType: string;
+
+  @Column({ default: '🏍️' })
+  vehicleIcon: string;
+
+  @Column({ nullable: true })
+  estimatedMinutes?: number;
 
   @Column({ default: 'ASIGNADO' })
   status: DeliveryStatus;

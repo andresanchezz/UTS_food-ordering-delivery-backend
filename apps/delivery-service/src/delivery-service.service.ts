@@ -1,12 +1,13 @@
 import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { Delivery, DeliveryStatus, CalculationStrategy } from './entities/delivery.entity.js';
+import { Delivery, DeliveryStatus } from './entities/delivery.entity.js';
 import { DeliveryZone } from './entities/delivery-zone.entity.js';
 import { CalculateDeliveryDto } from './dto/calculate-delivery.dto.js';
 import { CreateDeliveryDto } from './dto/create-delivery.dto.js';
 import { DeliveryGateway } from './gateway/delivery.gateway.js';
 import { OsrmDistanceAdapter } from './adapter/osrm-distance.adapter.js';
+import { DeliveryPlanRegistry, DeliveryQuoteResult } from './patterns/factory/index.js';
 
 @Injectable()
 export class DeliveryServiceService implements OnModuleInit {
@@ -34,28 +35,53 @@ export class DeliveryServiceService implements OnModuleInit {
     return this.zoneRepo.find();
   }
 
-  async calculateFee(dto: CalculateDeliveryDto): Promise<{ fee: number; strategy: CalculationStrategy; distanceKm: number }> {
+  async getAvailablePlans(): Promise<{ type: string; title: string; vehicleIcon: string; speedKmH: number; description: string }[]> {
+    const defaultCreatorStandard = DeliveryPlanRegistry.getCreator('STANDARD').createDeliveryPlan();
+    const defaultCreatorExpress = DeliveryPlanRegistry.getCreator('EXPRESS').createDeliveryPlan();
+    const defaultCreatorEco = DeliveryPlanRegistry.getCreator('ECO').createDeliveryPlan();
+
+    return [
+      {
+        type: defaultCreatorStandard.type,
+        title: defaultCreatorStandard.title,
+        vehicleIcon: defaultCreatorStandard.vehicleIcon,
+        speedKmH: defaultCreatorStandard.speedKmH,
+        description: defaultCreatorStandard.description,
+      },
+      {
+        type: defaultCreatorExpress.type,
+        title: defaultCreatorExpress.title,
+        vehicleIcon: defaultCreatorExpress.vehicleIcon,
+        speedKmH: defaultCreatorExpress.speedKmH,
+        description: defaultCreatorExpress.description,
+      },
+      {
+        type: defaultCreatorEco.type,
+        title: defaultCreatorEco.title,
+        vehicleIcon: defaultCreatorEco.vehicleIcon,
+        speedKmH: defaultCreatorEco.speedKmH,
+        description: defaultCreatorEco.description,
+      },
+    ];
+  }
+
+  async calculateFee(dto: CalculateDeliveryDto): Promise<DeliveryQuoteResult> {
     const zone = await this.zoneRepo.findOne({ where: { zoneName: dto.zoneName } });
     const baseFee = zone ? Number(zone.baseFee) : 4000;
 
+    // PATRÓN ESTRUCTURAL: ADAPTER (Intacto)
     // Si no se envía una distancia explícita, se calcula mediante el Adapter de OpenStreetMap
     let resolvedDistance = dto.distanceKm;
     if (resolvedDistance === undefined || resolvedDistance === null) {
       resolvedDistance = await this.distanceCalculator.calculateDistanceKm('Restaurante', dto.zoneName);
     }
 
-    const distanceCost = Number(resolvedDistance ?? 0) * 1200;
-    let fee = baseFee + distanceCost;
-    let strategy: CalculationStrategy = 'DISTANCE';
+    // PATRÓN CREACIONAL: FACTORY METHOD
+    // 1. Obtener el Creador adecuado (StandardDeliveryCreator, ExpressDeliveryCreator o EcoBicycleDeliveryCreator)
+    const creator = DeliveryPlanRegistry.getCreator(dto.deliveryType);
 
-    if (dto.isRushHour) {
-      fee = Math.round(fee * 1.25);
-      strategy = 'RUSH_HOUR';
-    } else if (Number(resolvedDistance) === 0) {
-      strategy = 'FLAT';
-    }
-
-    return { fee, strategy, distanceKm: resolvedDistance };
+    // 2. Ejecutar la operación de despacho delegada en el Creador y su Producto concreto
+    return creator.getDispatchQuote(baseFee, resolvedDistance, !!dto.isRushHour);
   }
 
   async createDelivery(dto: CreateDeliveryDto): Promise<Delivery> {
@@ -83,18 +109,30 @@ export class DeliveryServiceService implements OnModuleInit {
       distanceKm = await this.distanceCalculator.calculateDistanceKm('Restaurante', dto.zoneName);
     }
 
-    const { fee, strategy } = await this.calculateFee({
+    // Cotizar mediante el Creador del Factory Method correspondiente
+    const quote = await this.calculateFee({
       zoneName: dto.zoneName,
       distanceKm,
       isRushHour: dto.isRushHour,
+      deliveryType: dto.deliveryType,
     });
+
+    const defaultDriver =
+      quote.deliveryType === 'ECO'
+        ? 'Ciclista Eco — Reparto Urbano'
+        : quote.deliveryType === 'EXPRESS'
+        ? 'Motociclista Express Prioritario'
+        : 'Motociclista Estándar Asignado';
 
     const delivery = this.deliveryRepo.create({
       orderId: dto.orderId,
-      driverName: dto.driverName ?? 'Repartidor Asignado',
-      distanceKm,
-      fee,
-      calculationStrategy: strategy,
+      driverName: dto.driverName ?? defaultDriver,
+      distanceKm: quote.distanceKm,
+      fee: quote.fee,
+      calculationStrategy: quote.strategy,
+      deliveryType: quote.deliveryType,
+      vehicleIcon: quote.vehicleIcon,
+      estimatedMinutes: quote.estimatedMinutes,
       status: 'ASIGNADO',
     });
 

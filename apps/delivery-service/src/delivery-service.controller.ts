@@ -18,6 +18,15 @@ export class DeliveryServiceController {
     return this.deliveryService.calculateFee(dto);
   }
 
+  @Get('deliveries/plans')
+  getDeliveryPlans(
+    @Param('zoneName') _z?: string,
+    @Body() _b?: any,
+  ) {
+    // Permite consultar los planes usando los métodos del servicio
+    return this.deliveryService.getAvailablePlans();
+  }
+
   @Get('deliveries')
   getDeliveries() {
     return this.deliveryService.getDeliveries();

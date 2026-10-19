@@ -2,6 +2,7 @@ export class CreateOrderItemDto {
   productId: number;
   quantity: number;
   customizations?: string;
+  toppings?: string[];
 }
 
 export class CreateOrderDto {

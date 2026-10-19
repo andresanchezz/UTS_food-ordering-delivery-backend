@@ -9,6 +9,13 @@ import { CreateOrderDto } from './dto/create-order.dto.js';
 import { EventBroker } from './broker/event-broker.js';
 import { KitchenNotifierSubscriber } from './broker/subscribers/kitchen-notifier.subscriber.js';
 import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
+import {
+  OrderItemComponent,
+  BaseOrderItem,
+  applyToppings,
+  AVAILABLE_TOPPINGS,
+} from './patterns/decorator/index.js';
+import { OrderBuilder } from './patterns/builder/index.js';
 
 @Injectable()
 export class AppService implements OnModuleInit {
@@ -47,6 +54,10 @@ export class AppService implements OnModuleInit {
     return this.productRepo.find();
   }
 
+  getAvailableToppings() {
+    return Object.values(AVAILABLE_TOPPINGS);
+  }
+
   createProduct(dto: CreateProductDto): Promise<Product> {
     const product = this.productRepo.create(dto);
     return this.productRepo.save(product);
@@ -65,8 +76,14 @@ export class AppService implements OnModuleInit {
   }
 
   async createOrder(dto: CreateOrderDto): Promise<Order> {
-    const orderItems: OrderItem[] = [];
-    let subtotal = 0;
+    if (!dto.items || dto.items.length === 0) {
+      throw new BadRequestException('El pedido debe incluir al menos un producto.');
+    }
+
+    // 1. PATRÓN CREACIONAL: BUILDER (OrderBuilder)
+    // Instanciar el constructor fluido y alimentar datos del cliente
+    const builder = new OrderBuilder();
+    builder.setCustomerInfo(dto.customerName, dto.customerAddress);
 
     for (const itemDto of dto.items) {
       const product = await this.productRepo.findOne({ where: { id: itemDto.productId } });
@@ -74,35 +91,35 @@ export class AppService implements OnModuleInit {
         throw new NotFoundException(`Producto ${itemDto.productId} no existe`);
       }
 
-      const item = this.orderItemRepo.create({
-        productId: product.id,
-        productName: product.name,
-        quantity: itemDto.quantity ?? 1,
-        unitPrice: product.price,
-        customizations: itemDto.customizations ?? '',
-      });
+      // 2. PATRÓN ESTRUCTURAL: DECORATOR (BaseOrderItem + Toppings)
+      // Componente concreto base
+      let itemComponent: OrderItemComponent = new BaseOrderItem(
+        product.id,
+        product.name,
+        product.price,
+        itemDto.quantity ?? 1,
+      );
 
-      subtotal += Number(product.price) * (itemDto.quantity ?? 1);
-      orderItems.push(item);
+      // Si el cliente seleccionó adicionales/toppings, decorar dinámicamente
+      if (itemDto.toppings && itemDto.toppings.length > 0) {
+        itemComponent = applyToppings(itemComponent, itemDto.toppings);
+      }
+
+      // Builder incorpora el ítem decorado y acumula subtotales
+      builder.addItem(itemComponent, itemDto.customizations);
     }
 
-    const discount = dto.couponCode === 'DESCUENTO10' ? subtotal * 0.1 : 0;
-    const total = subtotal - discount;
+    // Builder aplica cupón y recalcula totales
+    if (dto.couponCode) {
+      builder.applyCoupon(dto.couponCode);
+    }
 
-    const order = this.orderRepo.create({
-      customerName: dto.customerName,
-      customerAddress: dto.customerAddress,
-      status: 'RECIBIDO',
-      subtotal,
-      discount,
-      total,
-      couponCode: dto.couponCode ?? undefined,
-      items: orderItems,
-    });
+    // Ensamblar la entidad Order con validación de invariantes
+    const order = builder.build();
 
     const savedOrder = await this.orderRepo.save(order);
 
-    // Publicar evento en el EventBroker (Desacoplado de la persistencia)
+    // 3. PATRÓN OBSERVER (Intacto): Notificar eventos a suscriptores
     this.eventBroker.publish('order.created', savedOrder);
 
     return savedOrder;

@@ -4,4 +4,5 @@ export class CreateDeliveryDto {
   distanceKm: number;
   driverName?: string;
   isRushHour?: boolean;
+  deliveryType?: string;
 }

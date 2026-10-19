@@ -13,6 +13,11 @@ export class AppController {
     return this.appService.getProducts();
   }
 
+  @Get('toppings')
+  getToppings() {
+    return this.appService.getAvailableToppings();
+  }
+
   @Post('products')
   createProduct(@Body() dto: CreateProductDto) {
     return this.appService.createProduct(dto);

@@ -94,12 +94,12 @@ export class DeliveryServiceSinAdapter {
 
 /**
  * ============================================================================
- * TABLA COMPARATIVA PARA LA SUSTENTACIÓN:
+ * TABLA COMPARATIVA:
  * ============================================================================
  *
  * | Criterio              | SIN Patrón Adapter (Este archivo)   | CON Patrón Adapter (En apps/delivery-service) |
  * |-----------------------|-------------------------------------|-----------------------------------------------|
- * | Archivos              | 1 solo archivo monolítico ("feo")   | 4 piezas limpias (Target, Adaptee, Adapter, Client) |
+ * | Archivos              | 1 solo archivo monolítico           | 4 piezas limpias (Target, Adaptee, Adapter, Client) |
  * | Responsabilidades     | 6 responsabilidades en una clase    | Cada clase tiene 1 sola responsabilidad (SRP) |
  * | ¿Cambio a Google Maps?| Toca reescribir este archivo        | Solo se crea GoogleMapsAdapter. El servicio no se toca (OCP) |
  * | Pruebas Unitarias     | Exige internet y API pública        | Se prueba inyectando un mock de DistanceCalculator |
