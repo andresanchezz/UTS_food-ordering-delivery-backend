@@ -10,11 +10,9 @@ import { EventBroker } from './broker/event-broker.js';
 import { KitchenNotifierSubscriber } from './broker/subscribers/kitchen-notifier.subscriber.js';
 import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
 import {
-  OrderItemComponent,
-  BaseOrderItem,
-  applyToppings,
-  AVAILABLE_TOPPINGS,
-} from './patterns/decorator/index.js';
+  DishFlyweightFactory,
+  OrderItemContext,
+} from './patterns/flyweight/index.js';
 import { OrderBuilder } from './patterns/builder/index.js';
 
 @Injectable()
@@ -55,7 +53,7 @@ export class AppService implements OnModuleInit {
   }
 
   getAvailableToppings() {
-    return Object.values(AVAILABLE_TOPPINGS);
+    return DishFlyweightFactory.getAllToppings();
   }
 
   createProduct(dto: CreateProductDto): Promise<Product> {
@@ -91,22 +89,26 @@ export class AppService implements OnModuleInit {
         throw new NotFoundException(`Producto ${itemDto.productId} no existe`);
       }
 
-      // 2. PATRÓN ESTRUCTURAL: DECORATOR (BaseOrderItem + Toppings)
-      // Componente concreto base
-      let itemComponent: OrderItemComponent = new BaseOrderItem(
-        product.id,
-        product.name,
-        product.price,
+      // 2. PATRÓN ESTRUCTURAL: FLYWEIGHT (DishFlyweightFactory + OrderItemContext)
+      // Recuperar instancia compartida en memoria (Estado Intrínseco: receta, alérgenos, calorías)
+      const dishFlyweight = DishFlyweightFactory.get(product.id);
+
+      // Mapear los adicionales seleccionados a sus Flyweights compartidos
+      const toppingFlyweights =
+        itemDto.toppings && itemDto.toppings.length > 0
+          ? itemDto.toppings.map((code) => DishFlyweightFactory.getTopping(code))
+          : [];
+
+      // Instanciar el contexto particular de la comanda (Estado Extrínseco)
+      const itemContext = new OrderItemContext(
+        dishFlyweight,
         itemDto.quantity ?? 1,
+        toppingFlyweights,
+        itemDto.customizations,
       );
 
-      // Si el cliente seleccionó adicionales/toppings, decorar dinámicamente
-      if (itemDto.toppings && itemDto.toppings.length > 0) {
-        itemComponent = applyToppings(itemComponent, itemDto.toppings);
-      }
-
-      // Builder incorpora el ítem decorado y acumula subtotales
-      builder.addItem(itemComponent, itemDto.customizations);
+      // Builder incorpora el ítem y acumula subtotales calculados por el Flyweight
+      builder.addItem(itemContext);
     }
 
     // Builder aplica cupón y recalcula totales

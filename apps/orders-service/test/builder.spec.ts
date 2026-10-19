@@ -1,17 +1,18 @@
 import { describe, it, expect } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { OrderBuilder } from '../src/patterns/builder/index.js';
-import { BaseOrderItem, ExtraCheeseDecorator } from '../src/patterns/decorator/index.js';
+import { DishFlyweightFactory, OrderItemContext } from '../src/patterns/flyweight/index.js';
 
 describe('Patrón Creacional: Builder (Construcción de pedidos OrderBuilder)', () => {
-  it('debe construir un pedido válido con cliente, ítems decorados y subtotales correctos', () => {
-    const burger = new ExtraCheeseDecorator(
-      new BaseOrderItem(1, 'Hamburguesa Clásica', 18000, 2),
-    ); // (18000 + 3000) * 2 = 42000
+  it('debe construir un pedido válido con cliente, ítems del Flyweight y subtotales correctos', () => {
+    const burgerFlyweight = DishFlyweightFactory.get('BURGER_CLASSIC');
+    const cheeseFlyweight = DishFlyweightFactory.getTopping('CHEESE');
+    // (18000 + 3000) * 2 = 42000
+    const burgerContext = new OrderItemContext(burgerFlyweight, 2, [cheeseFlyweight], 'Sin cebolla');
 
     const order = new OrderBuilder()
       .setCustomerInfo('Carlos Mendoza', 'Cra 27 # 45-12')
-      .addItem(burger, 'Sin cebolla')
+      .addItem(burgerContext)
       .build();
 
     expect(order.customerName).toBe('Carlos Mendoza');
@@ -29,7 +30,8 @@ describe('Patrón Creacional: Builder (Construcción de pedidos OrderBuilder)', 
   });
 
   it('debe aplicar descuento del 10% cuando se ingresa el cupón DESCUENTO10', () => {
-    const item = new BaseOrderItem(2, 'Combo Clásico', 26000, 1);
+    const comboFlyweight = DishFlyweightFactory.get('COMBO_CLASSIC');
+    const item = new OrderItemContext(comboFlyweight, 1);
 
     const order = new OrderBuilder()
       .setCustomerInfo('Laura Gómez', 'Calle 36 # 15-20')
@@ -44,7 +46,8 @@ describe('Patrón Creacional: Builder (Construcción de pedidos OrderBuilder)', 
   });
 
   it('no debe aplicar descuento para cupones no reconocidos', () => {
-    const item = new BaseOrderItem(1, 'Gaseosa', 5000, 2);
+    const sodaFlyweight = DishFlyweightFactory.get('SODA_400');
+    const item = new OrderItemContext(sodaFlyweight, 2);
 
     const order = new OrderBuilder()
       .setCustomerInfo('Mario Bros', 'Mushroom Kingdom')
@@ -76,7 +79,8 @@ describe('Patrón Creacional: Builder (Construcción de pedidos OrderBuilder)', 
   it('debe permitir resetear el builder para reutilizarlo en una nueva construcción', () => {
     const builder = new OrderBuilder();
     builder.setCustomerInfo('Cliente 1', 'Dirección 1');
-    builder.addItem(new BaseOrderItem(1, 'Producto 1', 10000, 1));
+    const friesFlyweight = DishFlyweightFactory.get('FRIES_MED');
+    builder.addItem(new OrderItemContext(friesFlyweight, 1));
 
     builder.reset();
 

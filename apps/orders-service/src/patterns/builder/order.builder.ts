@@ -1,8 +1,8 @@
 import { BadRequestException } from '@nestjs/common';
 import { Order } from '../../entities/order.entity.js';
 import { OrderItem } from '../../entities/order-item.entity.js';
-import { OrderItemComponent } from '../decorator/order-item.component.js';
-import { IOrderBuilder } from './order.builder.interface.js';
+import { IOrderBuilder, IOrderItemInput } from './order.builder.interface.js';
+import { OrderItemContext } from '../flyweight/order-item-context.js';
 
 /**
  * Constructor Concreto del Patrón Creacional BUILDER (GoF).
@@ -45,28 +45,32 @@ export class OrderBuilder implements IOrderBuilder {
     return this;
   }
 
-  addItem(component: OrderItemComponent, notes?: string): this {
-    if (!component) {
+  addItem(context: OrderItemContext | IOrderItemInput, notes?: string): this {
+    if (!context) {
       throw new BadRequestException('OrderBuilder: El ítem a agregar no puede ser nulo.');
     }
 
-    const quantity = component.getQuantity();
+    const quantity = typeof (context as any).getQuantity === 'function'
+      ? (context as IOrderItemInput).getQuantity()
+      : (context as OrderItemContext).quantity;
+
     if (quantity <= 0) {
       throw new BadRequestException('OrderBuilder: La cantidad del ítem debe ser mayor a 0.');
     }
 
-    const unitPrice = component.getPrice();
+    const unitPrice = context.getUnitPrice();
     const itemSubtotal = unitPrice * quantity;
 
-    // Combinar la descripción decorada con posibles notas adicionales escritas a mano
-    const decoratedDescription = component.getDescription();
-    const combinedCustomizations = notes && notes.trim().length > 0
-      ? `${decoratedDescription} | Nota: ${notes.trim()}`
-      : decoratedDescription;
+    // Combinar la descripción del Flyweight con notas adicionales si las hay
+    const description = context.getDescription();
+    const combinedCustomizations =
+      notes && notes.trim().length > 0 && !description.includes(notes.trim())
+        ? `${description} | Nota: ${notes.trim()}`
+        : description;
 
     const item = new OrderItem();
-    item.productId = component.getBaseProductId();
-    item.productName = component.getBaseProductName();
+    item.productId = context.getProductId();
+    item.productName = context.getProductName();
     item.quantity = quantity;
     item.unitPrice = unitPrice;
     item.customizations = combinedCustomizations;
