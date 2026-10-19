@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   BaseOrderItem,
+  ExtraMeatDecorator,
   ExtraCheeseDecorator,
   BaconDecorator,
   SpecialSauceDecorator,
@@ -16,6 +17,15 @@ describe('Patrón Estructural: Decorator (Personalización de ítems)', () => {
     expect(item.getBaseProductId()).toBe(1);
     expect(item.getQuantity()).toBe(2);
     expect(item.getToppingCodes()).toEqual([]);
+  });
+
+  it('debe decorar una hamburguesa con 1 Carne Extra incrementando el precio en $6.000', () => {
+    const burger = new BaseOrderItem(1, 'Hamburguesa Clásica', 18000, 1);
+    const withExtraMeat = new ExtraMeatDecorator(burger);
+
+    expect(withExtraMeat.getPrice()).toBe(24000); // 18000 + 6000
+    expect(withExtraMeat.getDescription()).toContain('Carne Extra (150g)');
+    expect(withExtraMeat.getToppingCodes()).toEqual(['MEAT']);
   });
 
   it('debe decorar con Extra Queso incrementando el precio y actualizando descripción', () => {

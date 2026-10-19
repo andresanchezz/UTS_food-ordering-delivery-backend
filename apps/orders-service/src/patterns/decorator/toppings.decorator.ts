@@ -12,6 +12,12 @@ export interface ToppingDefinition {
 }
 
 export const AVAILABLE_TOPPINGS: Record<string, ToppingDefinition> = {
+  MEAT: {
+    code: 'MEAT',
+    name: 'Carne de Res Extra (150g)',
+    price: 6000,
+    icon: '🥩',
+  },
   CHEESE: {
     code: 'CHEESE',
     name: 'Extra Queso Cheddar',
@@ -31,6 +37,27 @@ export const AVAILABLE_TOPPINGS: Record<string, ToppingDefinition> = {
     icon: '🥫',
   },
 };
+
+/**
+ * Decorador Concreto 0: Carne Extra
+ * Agrega $6.000 al precio y anota la adición en la descripción.
+ */
+export class ExtraMeatDecorator extends OrderItemDecorator {
+  static readonly EXTRA_PRICE = 6000;
+  static readonly LABEL = 'Carne Extra (150g)';
+
+  override getPrice(): number {
+    return this.wrappee.getPrice() + ExtraMeatDecorator.EXTRA_PRICE;
+  }
+
+  override getDescription(): string {
+    return `${this.wrappee.getDescription()} + ${ExtraMeatDecorator.LABEL} (+$${ExtraMeatDecorator.EXTRA_PRICE.toLocaleString('es-CO')})`;
+  }
+
+  override getToppingCodes(): string[] {
+    return [...this.wrappee.getToppingCodes(), 'MEAT'];
+  }
+}
 
 /**
  * Decorador Concreto 1: Extra Queso
@@ -106,6 +133,9 @@ export function applyToppings(
   for (const code of toppingCodes) {
     const normalized = code.trim().toUpperCase();
     switch (normalized) {
+      case 'MEAT':
+        decorated = new ExtraMeatDecorator(decorated);
+        break;
       case 'CHEESE':
         decorated = new ExtraCheeseDecorator(decorated);
         break;
