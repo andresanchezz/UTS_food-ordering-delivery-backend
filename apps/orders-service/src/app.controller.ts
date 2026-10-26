@@ -35,8 +35,8 @@ export class AppController {
   }
 
   @Post('orders/flyweight-mode')
-  setFlyweightMode(@Body() body: { useFlyweight: boolean }) {
-    return this.appService.setFlyweightMode(body.useFlyweight);
+  setFlyweightMode(@Body() body: { useFlyweight: boolean; items?: any[] }) {
+    return this.appService.setFlyweightMode(body.useFlyweight, body.items);
   }
 
   @Get('orders/benchmark')

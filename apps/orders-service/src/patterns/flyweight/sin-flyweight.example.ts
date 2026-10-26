@@ -167,31 +167,48 @@ export function runFlyweightComparisonBenchmark(orderCount: number = 10000) {
   const poolSnapshot = DishFlyweightFactory.getUniquePool();
   const basePoolBytes = v8.serialize(poolSnapshot).byteLength;
 
+  // Generar datos variados por cada orden (diferentes platos, cantidades y toppings reales)
+  const dishCodes = ['BURGER_CLASSIC', 'BURGER_DOUBLE', 'FRIES_MED', 'SODA_400', 'COMBO_CLASSIC'];
+  const toppingPool = ['MEAT', 'CHEESE', 'BACON', 'SAUCE'];
+
+  const ordersData: { dishCode: string; qty: number; toppings: string[]; note: string }[] = [];
+  for (let i = 0; i < orderCount; i++) {
+    const dishCode = dishCodes[i % dishCodes.length];
+    const qty = (i % 3) + 1;
+    const toppingCount = i % 3; // 0, 1 o 2 toppings
+    const toppings = toppingPool.slice(0, toppingCount);
+    const note = i % 2 === 0 ? `Pedido cliente #${i + 1}` : '';
+    ordersData.push({ dishCode, qty, toppings, note });
+  }
+
+  // 1. SIN Flyweight: cada orden crea objetos clonados en memoria
   const startSin = performance.now();
   const sinFlyweightItems: DishOrderItemSinFlyweight[] = [];
-  for (let i = 0; i < orderCount; i++) {
-    sinFlyweightItems.push(new DishOrderItemSinFlyweight(1, 2, ['MEAT', 'CHEESE'], 'Sin cebolla'));
+  for (const o of ordersData) {
+    sinFlyweightItems.push(new DishOrderItemSinFlyweight(o.dishCode, o.qty, o.toppings, o.note));
   }
   const tiempoSinMs = Number((performance.now() - startSin).toFixed(3));
   const bytesSin = Math.max(1, v8.serialize([poolSnapshot, sinFlyweightItems]).byteLength - basePoolBytes);
 
+  // 2. CON Flyweight: reutiliza las referencias del pool de DishFlyweightFactory
   const startCon = performance.now();
   const conFlyweightItems: OrderItemContext[] = [];
-  const sharedBurger = DishFlyweightFactory.get('BURGER_CLASSIC');
-  const sharedMeat = DishFlyweightFactory.getTopping('MEAT');
-  const sharedCheese = DishFlyweightFactory.getTopping('CHEESE');
-  for (let i = 0; i < orderCount; i++) {
-    conFlyweightItems.push(new OrderItemContext(sharedBurger, 2, [sharedMeat, sharedCheese], 'Sin cebolla'));
+  for (const o of ordersData) {
+    const dish = DishFlyweightFactory.get(o.dishCode);
+    const tops = o.toppings.map((t) => DishFlyweightFactory.getTopping(t));
+    conFlyweightItems.push(new OrderItemContext(dish, o.qty, tops, o.note));
   }
   const tiempoConMs = Number((performance.now() - startCon).toFixed(3));
   const bytesCon = Math.max(1, v8.serialize([poolSnapshot, conFlyweightItems]).byteLength - basePoolBytes);
+
+  const totalClonadosSin = sinFlyweightItems.reduce((acc, it) => acc + 1 + it.extraToppings.length, 0);
 
   const savedBytes = Math.max(0, bytesSin - bytesCon);
   return {
     orderCount,
     sinFlyweight: {
       instanciasPesadasCreadas: sinFlyweightItems.length,
-      objetosTotalesClonados: sinFlyweightItems.length * 3,
+      objetosTotalesClonados: totalClonadosSin,
       memoriaBytes: bytesSin,
       memoriaKb: Number((bytesSin / 1024).toFixed(2)),
       memoriaEstimadaMb: Number((bytesSin / (1024 * 1024)).toFixed(3)),

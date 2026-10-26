@@ -81,29 +81,26 @@ export class AppService implements OnModuleInit {
     return order;
   }
 
-  setFlyweightMode(useFlyweight: boolean) {
-    this.useFlyweightMode = Boolean(useFlyweight);
-    if (this.lastOrderItemsInput) {
-      this.lastOrderMetrics = measureOrderFlyweightComparison(
-        this.lastOrderItemsInput,
-        this.useFlyweightMode,
-      ).metrics;
-    }
-    return this.getFlyweightStatus();
-  }
+  getFlyweightStatus(cartItemsInput?: FlyweightComparisonItemInput[]) {
+    const input = cartItemsInput && cartItemsInput.length > 0
+      ? cartItemsInput
+      : this.lastOrderItemsInput && this.lastOrderItemsInput.length > 0
+        ? this.lastOrderItemsInput
+        : [{ dishKey: 1, quantity: 1, toppingCodes: [], notes: '' }];
 
-  getFlyweightStatus() {
-    const sampleOrder = measureOrderFlyweightComparison(
-      [{ dishKey: 1, quantity: 2, toppingCodes: ['MEAT', 'CHEESE'], notes: 'Sin cebolla' }],
-      this.useFlyweightMode,
-    ).metrics;
+    const currentMetrics = measureOrderFlyweightComparison(input, this.useFlyweightMode).metrics;
 
     return {
       useFlyweight: this.useFlyweightMode,
       mode: this.useFlyweightMode ? 'CON_FLYWEIGHT' : 'SIN_FLYWEIGHT',
       poolSize: DishFlyweightFactory.getPoolSize(),
-      activeMetrics: this.lastOrderMetrics ?? sampleOrder,
+      activeMetrics: currentMetrics,
     };
+  }
+
+  setFlyweightMode(useFlyweight: boolean, cartItemsInput?: FlyweightComparisonItemInput[]) {
+    this.useFlyweightMode = Boolean(useFlyweight);
+    return this.getFlyweightStatus(cartItemsInput);
   }
 
   runBenchmark(orderCount: number = 10000) {
