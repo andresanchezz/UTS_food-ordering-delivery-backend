@@ -110,6 +110,30 @@ export function measureOrderFlyweightComparison(
   itemsInput: FlyweightComparisonItemInput[],
   useFlyweight: boolean = true,
 ): { builtItems: IOrderItemInput[]; metrics: OrderFlyweightMetrics } {
+  if (!itemsInput || itemsInput.length === 0) {
+    return {
+      builtItems: [],
+      metrics: {
+        mode: useFlyweight ? 'CON_FLYWEIGHT' : 'SIN_FLYWEIGHT',
+        useFlyweight,
+        itemsProcessed: 0,
+        executionTimeMs: 0,
+        memoryBytes: 0,
+        memoryKb: 0,
+        sharedPoolInstances: useFlyweight ? DishFlyweightFactory.getPoolSize() : 0,
+        duplicatedInstancesCreated: 0,
+        comparison: {
+          withFlyweightBytes: 0,
+          withoutFlyweightBytes: 0,
+          withFlyweightTimeMs: 0,
+          withoutFlyweightTimeMs: 0,
+          savedBytes: 0,
+          savedPercentage: 0,
+        },
+      },
+    };
+  }
+
   // 1. Medir flujo CON Flyweight (reutilizando referencias del pool)
   const t0Con = performance.now();
   const conItems = itemsInput.map((it) => {

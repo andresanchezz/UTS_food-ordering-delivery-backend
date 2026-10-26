@@ -86,7 +86,7 @@ export class AppService implements OnModuleInit {
       ? cartItemsInput
       : this.lastOrderItemsInput && this.lastOrderItemsInput.length > 0
         ? this.lastOrderItemsInput
-        : [{ dishKey: 1, quantity: 1, toppingCodes: [], notes: '' }];
+        : [];
 
     const currentMetrics = measureOrderFlyweightComparison(input, this.useFlyweightMode).metrics;
 
