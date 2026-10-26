@@ -1,17 +1,11 @@
 import { IDishFlyweight, IOrderItemExtrinsic, KitchenTicketLine } from './dish-flyweight.interface.js';
+import { IOrderItemInput } from '../builder/order.builder.interface.js';
 
 /**
- * Contexto del Patrón Flyweight (Estado Extrínseco).
- *
- * Contiene únicamente las variables mutables o particulares de cada renglón de pedido:
- * - Cantidad solicitada
- * - Referencias ligeras a los toppings seleccionados
- * - Notas particulares del cliente ("Término medio", "Sin cebolla")
- *
- * En lugar de duplicar los 512KB de receta, textura e información nutricional,
- * mantiene un puntero en memoria hacia el Flyweight compartido correspondiente.
+ * CONTEXTO EXTRÍNSECO: Guarda solo los datos variables del cliente (cantidad, notas
+ * y referencias a los Flyweights del pool), evitando clonar recetas o alérgenos.
  */
-export class OrderItemContext implements IOrderItemExtrinsic {
+export class OrderItemContext implements IOrderItemExtrinsic, IOrderItemInput {
   constructor(
     public readonly flyweight: IDishFlyweight,
     public readonly quantity: number = 1,
@@ -23,45 +17,32 @@ export class OrderItemContext implements IOrderItemExtrinsic {
     }
   }
 
-  /**
-   * Delega en el Flyweight el cómputo del precio unitario pasando este contexto.
-   */
-  getUnitPrice(): number {
-    return this.flyweight.calculatePrice(this);
-  }
-
-  /**
-   * Subtotal del renglón (precio unitario acumulado * cantidad).
-   */
-  getSubtotal(): number {
-    return this.getUnitPrice() * this.quantity;
-  }
-
-  /**
-   * Delega en el Flyweight el formato de descripción legible.
-   */
-  getDescription(): string {
-    return this.flyweight.formatDescription(this);
-  }
-
-  /**
-   * ID del producto base.
-   */
   getProductId(): number {
     return this.flyweight.id;
   }
 
-  /**
-   * Nombre del producto base.
-   */
   getProductName(): string {
     return this.flyweight.name;
   }
 
-  /**
-   * Genera el desglose para cocina usando la operación del Flyweight.
-   */
+  getQuantity(): number {
+    return this.quantity;
+  }
+
+  getUnitPrice(): number {
+    return this.flyweight.calculatePrice(this);
+  }
+
+  getSubtotal(): number {
+    return this.getUnitPrice() * this.quantity;
+  }
+
+  getDescription(): string {
+    return this.flyweight.formatDescription(this);
+  }
+
   renderKitchenTicket(): KitchenTicketLine {
     return this.flyweight.renderKitchenTicket(this);
   }
 }
+

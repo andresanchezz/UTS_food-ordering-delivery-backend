@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Inject, Get, Post, Patch, Body, Param, Query } from '@nestjs/common';
 import { AppService } from './app.service.js';
 import { CreateProductDto } from './dto/create-product.dto.js';
 import { CreateOrderDto } from './dto/create-order.dto.js';
@@ -6,7 +6,8 @@ import { UpdateOrderStatusDto } from './dto/update-order-status.dto.js';
 
 @Controller()
 export class AppController {
-  constructor(private readonly appService: AppService) {}
+  constructor(@Inject(AppService) private readonly appService: AppService) {}
+
 
   @Get('products')
   getProducts() {
@@ -26,6 +27,21 @@ export class AppController {
   @Get('orders')
   getOrders() {
     return this.appService.getOrders();
+  }
+
+  @Get('orders/flyweight-status')
+  getFlyweightStatus() {
+    return this.appService.getFlyweightStatus();
+  }
+
+  @Post('orders/flyweight-mode')
+  setFlyweightMode(@Body() body: { useFlyweight: boolean }) {
+    return this.appService.setFlyweightMode(body.useFlyweight);
+  }
+
+  @Get('orders/benchmark')
+  runBenchmark(@Query('count') count?: string) {
+    return this.appService.runBenchmark(count ? Number(count) : 10000);
   }
 
   @Post('orders/reset')
@@ -51,3 +67,4 @@ export class AppController {
     return this.appService.updateOrderStatus(id, dto.status);
   }
 }
+

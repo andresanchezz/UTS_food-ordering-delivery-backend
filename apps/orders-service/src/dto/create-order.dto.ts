@@ -10,4 +10,10 @@ export class CreateOrderDto {
   customerAddress: string;
   items: CreateOrderItemDto[];
   couponCode?: string;
+  useFlyweight?: boolean;
+  zoneName?: string;
+  distanceKm?: number;
+  deliveryType?: 'STANDARD' | 'EXPRESS' | 'ECO';
+  isRushHour?: boolean;
 }
+

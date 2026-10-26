@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Delivery, DeliveryStatus } from './entities/delivery.entity.js';
@@ -16,9 +16,12 @@ export class DeliveryServiceService implements OnModuleInit {
     private readonly deliveryRepo: Repository<Delivery>,
     @InjectRepository(DeliveryZone)
     private readonly zoneRepo: Repository<DeliveryZone>,
+    @Inject(DeliveryGateway)
     private readonly deliveryGateway: DeliveryGateway,
+    @Inject(OsrmDistanceAdapter)
     private readonly distanceCalculator: OsrmDistanceAdapter,
   ) {}
+
 
   async onModuleInit() {
     const count = await this.zoneRepo.count();

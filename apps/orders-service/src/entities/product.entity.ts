@@ -5,12 +5,13 @@ export class Product {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column('varchar')
   name: string;
 
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
 
-  @Column({ default: false })
+  @Column('boolean', { default: false })
   isCombo: boolean;
 }
+

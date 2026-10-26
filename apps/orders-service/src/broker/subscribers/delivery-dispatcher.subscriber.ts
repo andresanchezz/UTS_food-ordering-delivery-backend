@@ -13,8 +13,10 @@ export class DeliveryDispatcherSubscriber implements OrderSubscriber {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             orderId: order.id,
-            zoneName: 'Zona Centro',
-            distanceKm: 3.5,
+            zoneName: order.zoneName || 'Zona Centro',
+            distanceKm: Number(order.distanceKm ?? 3.5),
+            deliveryType: order.deliveryType || 'STANDARD',
+            isRushHour: Boolean(order.isRushHour),
           }),
         });
 
@@ -30,3 +32,4 @@ export class DeliveryDispatcherSubscriber implements OrderSubscriber {
     }
   }
 }
+

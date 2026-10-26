@@ -6,10 +6,10 @@ export class OrderItem {
   @PrimaryGeneratedColumn()
   id: number;
 
-  @Column()
+  @Column('int')
   productId: number;
 
-  @Column()
+  @Column('varchar')
   productName: string;
 
   @Column('int', { default: 1 })
@@ -18,9 +18,10 @@ export class OrderItem {
   @Column('decimal', { precision: 10, scale: 2 })
   unitPrice: number;
 
-  @Column({ default: '' })
+  @Column('varchar', { default: '' })
   customizations: string;
 
   @ManyToOne('Order', 'items', { onDelete: 'CASCADE' })
   order: Order;
 }
+

@@ -1,120 +1,61 @@
 import { DishFlyweight } from './dish-flyweight.js';
 
+export interface DishRecipeData {
+  id: number;
+  code: string;
+  name: string;
+  basePrice: number;
+  category: string;
+  icon: string;
+  calories: number;
+  allergens: string[];
+  preparationGuide: string;
+}
+
+export const RECIPES_DATA: DishRecipeData[] = [
+  { id: 1, code: 'BURGER_CLASSIC', name: 'Hamburguesa Clásica', basePrice: 18000, category: 'BURGER', icon: '🍔', calories: 650, allergens: ['Gluten', 'Sésamo', 'Lácteos'], preparationGuide: 'Carne de res 150g a la plancha término 3/4. Pan brioche sellado.' },
+  { id: 2, code: 'BURGER_DOUBLE', name: 'Hamburguesa Doble Carne', basePrice: 24000, category: 'BURGER', icon: '🍔', calories: 920, allergens: ['Gluten', 'Sésamo', 'Lácteos'], preparationGuide: 'Doble carne 150g (300g total), doble queso cheddar fundido al vapor.' },
+  { id: 3, code: 'FRIES_MED', name: 'Papas Fritas Medianas', basePrice: 7000, category: 'SIDE', icon: '🍟', calories: 380, allergens: [], preparationGuide: 'Freír a 180°C durante 3.5 minutos hasta dorado crujiente.' },
+  { id: 4, code: 'SODA_400', name: 'Gaseosa 400ml', basePrice: 5000, category: 'BEVERAGE', icon: '🥤', calories: 140, allergens: [], preparationGuide: 'Servir fría a 4°C con hielo en vaso biodegradable.' },
+  { id: 5, code: 'COMBO_CLASSIC', name: 'Combo Clásico (Hamburguesa + Papas + Gaseosa)', basePrice: 26000, category: 'COMBO', icon: '🍔🍟🥤', calories: 1170, allergens: ['Gluten', 'Sésamo', 'Lácteos'], preparationGuide: 'Ensamblar hamburguesa clásica + papas fritas medianas + gaseosa 400ml.' },
+];
+
+export const TOPPINGS_DATA: DishRecipeData[] = [
+  { id: 101, code: 'MEAT', name: 'Carne Extra (150g)', basePrice: 6000, category: 'TOPPING', icon: '🥩', calories: 250, allergens: [], preparationGuide: 'Parrilla directa a 220°C con sal marina gruesa.' },
+  { id: 102, code: 'CHEESE', name: 'Extra Queso Cheddar', basePrice: 3000, category: 'TOPPING', icon: '🧀', calories: 110, allergens: ['Lácteos'], preparationGuide: 'Fundir sobre la carne 30 segundos con campana de vapor.' },
+  { id: 103, code: 'BACON', name: 'Tocineta Crispy', basePrice: 4500, category: 'TOPPING', icon: '🥓', calories: 160, allergens: [], preparationGuide: 'Tostar a la plancha hasta punto crocante sin quemar grasa.' },
+  { id: 104, code: 'SAUCE', name: 'Salsa Especial Artesanal', basePrice: 1500, category: 'TOPPING', icon: '🥫', calories: 75, allergens: ['Huevo', 'Mostaza'], preparationGuide: 'Dispensar 25ml con boquilla sobre la base del pan.' },
+];
+
+export function getRawDishData(key: string | number, fallbackName?: string, fallbackPrice: number = 0): DishRecipeData {
+  const rawKey = String(key).trim();
+  const all = [...RECIPES_DATA, ...TOPPINGS_DATA];
+  const found = all.find(
+    (d) =>
+      String(d.id) === rawKey ||
+      d.code.toUpperCase() === rawKey.toUpperCase() ||
+      d.name.toLowerCase() === rawKey.toLowerCase() ||
+      (fallbackName && d.name.toLowerCase() === fallbackName.trim().toLowerCase()),
+  );
+  if (found) return found;
+  return {
+    id: typeof key === 'number' ? key : 999,
+    code: rawKey.toUpperCase(),
+    name: fallbackName ?? rawKey,
+    basePrice: Number(fallbackPrice) || 0,
+    category: 'CUSTOM',
+    icon: '🍽️',
+    calories: 0,
+    allergens: [],
+    preparationGuide: 'Preparación estándar de cocina',
+  };
+}
+
 /**
- * Patrón Estructural: FÁBRICA FLYWEIGHT (GoF / Refactoring Guru)
- *
- * Administra el pool de objetos Flyweight compartidos en memoria.
- * Garantiza que para cada plato, ingrediente o adición del menú exista
- * UNA ÚNICA INSTANCIA en toda la memoria del proceso servidor.
+ * FÁBRICA FLYWEIGHT: Administra el pool de instancias únicas compartidas en RAM.
  */
 export class DishFlyweightFactory {
   private static readonly pool: Map<string, DishFlyweight> = new Map();
-
-  // Catálogo canónico con recetas pesadas y especificaciones intrínsecas
-  private static readonly RECIPES_DATA = [
-    {
-      id: 1,
-      code: 'BURGER_CLASSIC',
-      name: 'Hamburguesa Clásica',
-      basePrice: 18000,
-      category: 'BURGER',
-      icon: '🍔',
-      calories: 650,
-      allergens: ['Gluten', 'Sésamo', 'Lácteos'],
-      preparationGuide: 'Carne de res 150g a la plancha término 3/4. Pan brioche sellado.',
-    },
-    {
-      id: 2,
-      code: 'BURGER_DOUBLE',
-      name: 'Hamburguesa Doble Carne',
-      basePrice: 24000,
-      category: 'BURGER',
-      icon: '🍔',
-      calories: 920,
-      allergens: ['Gluten', 'Sésamo', 'Lácteos'],
-      preparationGuide: 'Doble carne 150g (300g total), doble queso cheddar fundido al vapor.',
-    },
-    {
-      id: 3,
-      code: 'FRIES_MED',
-      name: 'Papas Fritas Medianas',
-      basePrice: 7000,
-      category: 'SIDE',
-      icon: '🍟',
-      calories: 380,
-      allergens: [],
-      preparationGuide: 'Freír a 180°C durante 3.5 minutos hasta dorado crujiente.',
-    },
-    {
-      id: 4,
-      code: 'SODA_400',
-      name: 'Gaseosa 400ml',
-      basePrice: 5000,
-      category: 'BEVERAGE',
-      icon: '🥤',
-      calories: 140,
-      allergens: [],
-      preparationGuide: 'Servir fría a 4°C con hielo en vaso biodegradable.',
-    },
-    {
-      id: 5,
-      code: 'COMBO_CLASSIC',
-      name: 'Combo Clásico (Hamburguesa + Papas + Gaseosa)',
-      basePrice: 26000,
-      category: 'COMBO',
-      icon: '🍔🍟🥤',
-      calories: 1170,
-      allergens: ['Gluten', 'Sésamo', 'Lácteos'],
-      preparationGuide: 'Ensamblar hamburguesa clásica + papas fritas medianas + gaseosa 400ml.',
-    },
-  ];
-
-  private static readonly TOPPINGS_DATA = [
-    {
-      id: 101,
-      code: 'MEAT',
-      name: 'Carne Extra (150g)',
-      basePrice: 6000,
-      category: 'TOPPING',
-      icon: '🥩',
-      calories: 250,
-      allergens: [],
-      preparationGuide: 'Parrilla directa a 220°C con sal marina gruesa.',
-    },
-    {
-      id: 102,
-      code: 'CHEESE',
-      name: 'Extra Queso Cheddar',
-      basePrice: 3000,
-      category: 'TOPPING',
-      icon: '🧀',
-      calories: 110,
-      allergens: ['Lácteos'],
-      preparationGuide: 'Fundir sobre la carne 30 segundos con campana de vapor.',
-    },
-    {
-      id: 103,
-      code: 'BACON',
-      name: 'Tocineta Crispy',
-      basePrice: 4500,
-      category: 'TOPPING',
-      icon: '🥓',
-      calories: 160,
-      allergens: [],
-      preparationGuide: 'Tostar a la plancha hasta punto crocante sin quemar grasa.',
-    },
-    {
-      id: 104,
-      code: 'SAUCE',
-      name: 'Salsa Especial Artesanal',
-      basePrice: 1500,
-      category: 'TOPPING',
-      icon: '🥫',
-      calories: 75,
-      allergens: ['Huevo', 'Mostaza'],
-      preparationGuide: 'Dispensar 25ml con boquilla sobre la base del pan.',
-    },
-  ];
 
   static {
     DishFlyweightFactory.initializePool();
@@ -122,117 +63,64 @@ export class DishFlyweightFactory {
 
   public static initializePool(): void {
     DishFlyweightFactory.pool.clear();
-
-    for (const r of DishFlyweightFactory.RECIPES_DATA) {
-      const flyweight = new DishFlyweight(
-        r.id,
-        r.code,
-        r.name,
-        r.basePrice,
-        r.category,
-        r.icon,
-        r.calories,
-        r.allergens,
-        r.preparationGuide,
+    for (const item of [...RECIPES_DATA, ...TOPPINGS_DATA]) {
+      DishFlyweightFactory.registerInPool(
+        new DishFlyweight(
+          item.id, item.code, item.name, item.basePrice, item.category,
+          item.icon, item.calories, item.allergens, item.preparationGuide,
+        ),
       );
-      DishFlyweightFactory.registerInPool(flyweight);
-    }
-
-    for (const t of DishFlyweightFactory.TOPPINGS_DATA) {
-      const flyweight = new DishFlyweight(
-        t.id,
-        t.code,
-        t.name,
-        t.basePrice,
-        t.category,
-        t.icon,
-        t.calories,
-        t.allergens,
-        t.preparationGuide,
-      );
-      DishFlyweightFactory.registerInPool(flyweight);
     }
   }
 
-  private static registerInPool(flyweight: DishFlyweight): void {
-    DishFlyweightFactory.pool.set(flyweight.code.toUpperCase(), flyweight);
-    DishFlyweightFactory.pool.set(String(flyweight.id), flyweight);
-    DishFlyweightFactory.pool.set(flyweight.name.toLowerCase(), flyweight);
+  private static registerInPool(fw: DishFlyweight): void {
+    DishFlyweightFactory.pool.set(fw.code.toUpperCase(), fw);
+    DishFlyweightFactory.pool.set(String(fw.id), fw);
+    DishFlyweightFactory.pool.set(fw.name.toLowerCase(), fw);
   }
 
-  /**
-   * Obtiene la instancia compartida (Flyweight) desde el pool por código, ID o nombre.
-   * Si no existe, genera una nueva instancia compartible y la preserva en el pool.
-   */
-  static get(key: string | number): DishFlyweight {
+  static get(key: string | number, fallbackName?: string, fallbackPrice: number = 0): DishFlyweight {
     const rawKey = String(key).trim();
     const existing =
       DishFlyweightFactory.pool.get(rawKey.toUpperCase()) ||
       DishFlyweightFactory.pool.get(rawKey) ||
-      DishFlyweightFactory.pool.get(rawKey.toLowerCase());
+      DishFlyweightFactory.pool.get(rawKey.toLowerCase()) ||
+      (fallbackName ? DishFlyweightFactory.pool.get(fallbackName.trim().toLowerCase()) : undefined);
 
-    if (existing) {
-      return existing;
-    }
+    if (existing) return existing;
 
-    // Creación dinámica de rescate para productos no catalogados previamente
-    const fallback = new DishFlyweight(
-      typeof key === 'number' ? key : 999,
-      rawKey.toUpperCase(),
-      rawKey,
-      0,
-      'CUSTOM',
-      '🍽️',
-      0,
-      [],
-      'Preparación estándar de cocina',
+    const raw = getRawDishData(key, fallbackName, fallbackPrice);
+    const created = new DishFlyweight(
+      raw.id, raw.code, raw.name, raw.basePrice, raw.category,
+      raw.icon, raw.calories, raw.allergens, raw.preparationGuide,
     );
-    DishFlyweightFactory.registerInPool(fallback);
-    return fallback;
+    DishFlyweightFactory.registerInPool(created);
+    return created;
   }
 
-  /**
-   * Obtiene el Flyweight compartido de un adicional o topping por su código.
-   */
   static getTopping(code: string): DishFlyweight {
     return DishFlyweightFactory.get(code.toUpperCase());
   }
 
-  /**
-   * Retorna la lista de todos los platos base del catálogo compartidos en el pool.
-   */
   static getAllDishes(): DishFlyweight[] {
-    const unique = new Set<DishFlyweight>();
-    for (const r of DishFlyweightFactory.RECIPES_DATA) {
-      const f = DishFlyweightFactory.pool.get(r.code);
-      if (f) unique.add(f);
-    }
-    return Array.from(unique);
+    return RECIPES_DATA.map((r) => DishFlyweightFactory.get(r.code));
   }
 
-  /**
-   * Retorna la lista de toppings disponibles con sus tarifas y descripciones.
-   */
   static getAllToppings(): { code: string; name: string; price: number; icon: string }[] {
-    return DishFlyweightFactory.TOPPINGS_DATA.map((t) => ({
-      code: t.code,
-      name: t.name,
-      price: t.basePrice,
-      icon: t.icon,
-    }));
+    return TOPPINGS_DATA.map((t) => ({ code: t.code, name: t.name, price: t.basePrice, icon: t.icon }));
   }
 
-  /**
-   * Retorna la cantidad de instancias Flyweight únicas que residen físicamente en memoria.
-   */
+  static getUniquePool(): DishFlyweight[] {
+    return Array.from(new Set(DishFlyweightFactory.pool.values()));
+  }
+
   static getPoolSize(): number {
-    return new Set(DishFlyweightFactory.pool.values()).size;
+    return DishFlyweightFactory.getUniquePool().length;
   }
 
-  /**
-   * Limpia el pool (útil para restablecer estados en pruebas unitarias).
-   */
   static clearPool(): void {
     DishFlyweightFactory.pool.clear();
   }
 }
+
+

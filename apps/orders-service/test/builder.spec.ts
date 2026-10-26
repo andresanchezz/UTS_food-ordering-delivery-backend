@@ -27,6 +27,7 @@ describe('Patrón Creacional: Builder (Construcción de pedidos OrderBuilder)', 
     expect(order.subtotal).toBe(42000);
     expect(order.discount).toBe(0);
     expect(order.total).toBe(42000);
+    expect(() => JSON.stringify(order)).not.toThrow();
   });
 
   it('debe aplicar descuento del 10% cuando se ingresa el cupón DESCUENTO10', () => {

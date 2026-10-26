@@ -13,15 +13,16 @@ export class EventBroker {
     this.subscribers.get(event)!.push(subscriber);
   }
 
-  publish(event: string, order: Order): void {
+  async publish(event: string, order: Order): Promise<void> {
     console.log(`\n[EventBroker] 📢 Evento publicado: '${event}' para pedido #${order.id}`);
     const listeners = this.subscribers.get(event) || [];
-    listeners.forEach((sub) => {
+    for (const sub of listeners) {
       try {
-        sub.update(event, order);
+        await sub.update(event, order);
       } catch (err: any) {
         console.error(`[EventBroker] ❌ Error en suscriptor:`, err.message);
       }
-    });
+    }
   }
 }
+

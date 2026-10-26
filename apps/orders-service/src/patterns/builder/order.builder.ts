@@ -12,6 +12,10 @@ import { OrderItemContext } from '../flyweight/order-item-context.js';
 export class OrderBuilder implements IOrderBuilder {
   private customerName = '';
   private customerAddress = '';
+  private zoneName = 'Zona Centro';
+  private distanceKm = 3.5;
+  private deliveryType = 'STANDARD';
+  private isRushHour = false;
   private items: OrderItem[] = [];
   private couponCode?: string;
   private subtotal = 0;
@@ -25,6 +29,10 @@ export class OrderBuilder implements IOrderBuilder {
   reset(): this {
     this.customerName = '';
     this.customerAddress = '';
+    this.zoneName = 'Zona Centro';
+    this.distanceKm = 3.5;
+    this.deliveryType = 'STANDARD';
+    this.isRushHour = false;
     this.items = [];
     this.couponCode = undefined;
     this.subtotal = 0;
@@ -45,12 +53,25 @@ export class OrderBuilder implements IOrderBuilder {
     return this;
   }
 
+  setDeliveryPreferences(
+    zoneName?: string,
+    distanceKm?: number,
+    deliveryType?: string,
+    isRushHour?: boolean,
+  ): this {
+    if (zoneName?.trim()) this.zoneName = zoneName.trim();
+    if (distanceKm !== undefined && distanceKm >= 0) this.distanceKm = Number(distanceKm);
+    if (deliveryType?.trim()) this.deliveryType = deliveryType.trim().toUpperCase();
+    if (isRushHour !== undefined) this.isRushHour = Boolean(isRushHour);
+    return this;
+  }
+
   addItem(context: OrderItemContext | IOrderItemInput, notes?: string): this {
     if (!context) {
       throw new BadRequestException('OrderBuilder: El ítem a agregar no puede ser nulo.');
     }
 
-    const quantity = typeof (context as any).getQuantity === 'function'
+    const quantity = typeof (context as IOrderItemInput).getQuantity === 'function'
       ? (context as IOrderItemInput).getQuantity()
       : (context as OrderItemContext).quantity;
 
@@ -61,7 +82,6 @@ export class OrderBuilder implements IOrderBuilder {
     const unitPrice = context.getUnitPrice();
     const itemSubtotal = unitPrice * quantity;
 
-    // Combinar la descripción del Flyweight con notas adicionales si las hay
     const description = context.getDescription();
     const combinedCustomizations =
       notes && notes.trim().length > 0 && !description.includes(notes.trim())
@@ -91,14 +111,7 @@ export class OrderBuilder implements IOrderBuilder {
 
     const normalized = couponCode.trim().toUpperCase();
     this.couponCode = normalized;
-
-    // Regla de negocio de cupones
-    if (normalized === 'DESCUENTO10') {
-      this.discount = Math.round(this.subtotal * 0.1);
-    } else {
-      this.discount = 0;
-    }
-
+    this.discount = normalized === 'DESCUENTO10' ? Math.round(this.subtotal * 0.1) : 0;
     this.recalculateTotal();
     return this;
   }
@@ -131,6 +144,10 @@ export class OrderBuilder implements IOrderBuilder {
     const order = new Order();
     order.customerName = this.customerName;
     order.customerAddress = this.customerAddress;
+    order.zoneName = this.zoneName;
+    order.distanceKm = this.distanceKm;
+    order.deliveryType = this.deliveryType;
+    order.isRushHour = this.isRushHour;
     order.status = 'RECIBIDO';
     order.subtotal = this.subtotal;
     order.discount = this.discount;
@@ -138,11 +155,7 @@ export class OrderBuilder implements IOrderBuilder {
     order.couponCode = this.couponCode;
     order.items = this.items;
 
-    // Vincular relación bidireccional en memoria
-    for (const item of this.items) {
-      item.order = order;
-    }
-
     return order;
   }
 }
+

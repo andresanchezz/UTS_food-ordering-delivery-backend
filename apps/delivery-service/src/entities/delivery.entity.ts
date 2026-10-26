@@ -8,10 +8,10 @@ export class Delivery {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column()
+  @Column('varchar')
   orderId: string;
 
-  @Column({ default: 'Repartidor Pendiente' })
+  @Column('varchar', { default: 'Repartidor Pendiente' })
   driverName: string;
 
   @Column('decimal', { precision: 5, scale: 2, default: 0 })
@@ -20,21 +20,22 @@ export class Delivery {
   @Column('decimal', { precision: 10, scale: 2, default: 0 })
   fee: number;
 
-  @Column({ default: 'FLAT' })
+  @Column('varchar', { default: 'FLAT' })
   calculationStrategy: CalculationStrategy;
 
-  @Column({ default: 'STANDARD' })
+  @Column('varchar', { default: 'STANDARD' })
   deliveryType: string;
 
-  @Column({ default: '🏍️' })
+  @Column('varchar', { default: '🏍️' })
   vehicleIcon: string;
 
-  @Column({ nullable: true })
+  @Column('int', { nullable: true })
   estimatedMinutes?: number;
 
-  @Column({ default: 'ASIGNADO' })
+  @Column('varchar', { default: 'ASIGNADO' })
   status: DeliveryStatus;
 
   @CreateDateColumn()
   createdAt: Date;
 }
+

@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Body, Param } from '@nestjs/common';
+import { Controller, Inject, Get, Post, Patch, Body, Param } from '@nestjs/common';
 import { DeliveryServiceService } from './delivery-service.service.js';
 import { CalculateDeliveryDto } from './dto/calculate-delivery.dto.js';
 import { CreateDeliveryDto } from './dto/create-delivery.dto.js';
@@ -6,7 +6,8 @@ import { UpdateDeliveryStatusDto } from './dto/update-delivery-status.dto.js';
 
 @Controller()
 export class DeliveryServiceController {
-  constructor(private readonly deliveryService: DeliveryServiceService) {}
+  constructor(@Inject(DeliveryServiceService) private readonly deliveryService: DeliveryServiceService) {}
+
 
   @Get('zones')
   getZones() {

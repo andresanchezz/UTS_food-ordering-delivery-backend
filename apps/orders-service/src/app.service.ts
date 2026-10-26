@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit, NotFoundException, BadRequestException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Product } from './entities/product.entity.js';
@@ -11,12 +11,19 @@ import { KitchenNotifierSubscriber } from './broker/subscribers/kitchen-notifier
 import { DeliveryDispatcherSubscriber } from './broker/subscribers/delivery-dispatcher.subscriber.js';
 import {
   DishFlyweightFactory,
-  OrderItemContext,
+  measureOrderFlyweightComparison,
+  runFlyweightComparisonBenchmark,
+  type OrderFlyweightMetrics,
+  type FlyweightComparisonItemInput,
 } from './patterns/flyweight/index.js';
 import { OrderBuilder } from './patterns/builder/index.js';
 
 @Injectable()
 export class AppService implements OnModuleInit {
+  private useFlyweightMode: boolean = true;
+  private lastOrderMetrics: OrderFlyweightMetrics | null = null;
+  private lastOrderItemsInput: FlyweightComparisonItemInput[] | null = null;
+
   constructor(
     @InjectRepository(Product)
     private readonly productRepo: Repository<Product>,
@@ -24,18 +31,19 @@ export class AppService implements OnModuleInit {
     private readonly orderRepo: Repository<Order>,
     @InjectRepository(OrderItem)
     private readonly orderItemRepo: Repository<OrderItem>,
+    @Inject(EventBroker)
     private readonly eventBroker: EventBroker,
+    @Inject(KitchenNotifierSubscriber)
     private readonly kitchenNotifier: KitchenNotifierSubscriber,
+    @Inject(DeliveryDispatcherSubscriber)
     private readonly deliveryDispatcher: DeliveryDispatcherSubscriber,
   ) {}
 
   async onModuleInit() {
-    // Suscribir observadores al EventBroker
     this.eventBroker.subscribe('order.created', this.kitchenNotifier);
     this.eventBroker.subscribe('order.ready', this.deliveryDispatcher);
     this.eventBroker.subscribe('order.status_updated', this.kitchenNotifier);
 
-    // Datos iniciales del menu
     const count = await this.productRepo.count();
     if (count === 0) {
       await this.productRepo.save([
@@ -73,15 +81,50 @@ export class AppService implements OnModuleInit {
     return order;
   }
 
+  setFlyweightMode(useFlyweight: boolean) {
+    this.useFlyweightMode = Boolean(useFlyweight);
+    if (this.lastOrderItemsInput) {
+      this.lastOrderMetrics = measureOrderFlyweightComparison(
+        this.lastOrderItemsInput,
+        this.useFlyweightMode,
+      ).metrics;
+    }
+    return this.getFlyweightStatus();
+  }
+
+  getFlyweightStatus() {
+    const sampleOrder = measureOrderFlyweightComparison(
+      [{ dishKey: 1, quantity: 2, toppingCodes: ['MEAT', 'CHEESE'], notes: 'Sin cebolla' }],
+      this.useFlyweightMode,
+    ).metrics;
+
+    return {
+      useFlyweight: this.useFlyweightMode,
+      mode: this.useFlyweightMode ? 'CON_FLYWEIGHT' : 'SIN_FLYWEIGHT',
+      poolSize: DishFlyweightFactory.getPoolSize(),
+      activeMetrics: this.lastOrderMetrics ?? sampleOrder,
+    };
+  }
+
+  runBenchmark(orderCount: number = 10000) {
+    const safeCount = Math.min(50000, Math.max(1, Math.floor(Number(orderCount) || 10000)));
+    return runFlyweightComparisonBenchmark(safeCount);
+  }
+
   async createOrder(dto: CreateOrderDto): Promise<Order> {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('El pedido debe incluir al menos un producto.');
     }
 
+    const useFlyweight = dto.useFlyweight !== undefined ? Boolean(dto.useFlyweight) : this.useFlyweightMode;
+    this.useFlyweightMode = useFlyweight;
+
     // 1. PATRÓN CREACIONAL: BUILDER (OrderBuilder)
-    // Instanciar el constructor fluido y alimentar datos del cliente
     const builder = new OrderBuilder();
     builder.setCustomerInfo(dto.customerName, dto.customerAddress);
+    builder.setDeliveryPreferences(dto.zoneName, dto.distanceKm, dto.deliveryType, dto.isRushHour);
+
+    const resolvedItemsInput: FlyweightComparisonItemInput[] = [];
 
     for (const itemDto of dto.items) {
       const product = await this.productRepo.findOne({ where: { id: itemDto.productId } });
@@ -89,40 +132,35 @@ export class AppService implements OnModuleInit {
         throw new NotFoundException(`Producto ${itemDto.productId} no existe`);
       }
 
-      // 2. PATRÓN ESTRUCTURAL: FLYWEIGHT (DishFlyweightFactory + OrderItemContext)
-      // Recuperar instancia compartida en memoria (Estado Intrínseco: receta, alérgenos, calorías)
-      const dishFlyweight = DishFlyweightFactory.get(product.id);
+      resolvedItemsInput.push({
+        dishKey: product.id,
+        quantity: itemDto.quantity ?? 1,
+        toppingCodes: itemDto.toppings ?? [],
+        notes: itemDto.customizations,
+        fallbackName: product.name,
+        fallbackPrice: Number(product.price),
+      });
+    }
 
-      // Mapear los adicionales seleccionados a sus Flyweights compartidos
-      const toppingFlyweights =
-        itemDto.toppings && itemDto.toppings.length > 0
-          ? itemDto.toppings.map((code) => DishFlyweightFactory.getTopping(code))
-          : [];
+    // 2. PATRÓN ESTRUCTURAL: FLYWEIGHT (Switcheable CON vs SIN patrón con medición real V8)
+    const { builtItems, metrics } = measureOrderFlyweightComparison(resolvedItemsInput, useFlyweight);
+    this.lastOrderItemsInput = resolvedItemsInput;
+    this.lastOrderMetrics = metrics;
 
-      // Instanciar el contexto particular de la comanda (Estado Extrínseco)
-      const itemContext = new OrderItemContext(
-        dishFlyweight,
-        itemDto.quantity ?? 1,
-        toppingFlyweights,
-        itemDto.customizations,
-      );
-
-      // Builder incorpora el ítem y acumula subtotales calculados por el Flyweight
+    for (const itemContext of builtItems) {
       builder.addItem(itemContext);
     }
 
-    // Builder aplica cupón y recalcula totales
     if (dto.couponCode) {
       builder.applyCoupon(dto.couponCode);
     }
 
-    // Ensamblar la entidad Order con validación de invariantes
     const order = builder.build();
-
     const savedOrder = await this.orderRepo.save(order);
+    savedOrder.flyweightMetrics = metrics;
 
-    // 3. PATRÓN OBSERVER (Intacto): Notificar eventos a suscriptores
-    this.eventBroker.publish('order.created', savedOrder);
+    // 3. PATRÓN OBSERVER: Notificar eventos a suscriptores
+    await this.eventBroker.publish('order.created', savedOrder);
 
     return savedOrder;
   }
@@ -130,12 +168,10 @@ export class AppService implements OnModuleInit {
   async updateOrderStatus(id: string, status: OrderStatus): Promise<Order> {
     const order = await this.getOrderById(id);
 
-    // Idempotencia si ya está en el mismo estado
     if (order.status === status) {
       return order;
     }
 
-    // Máquina de estados del pedido
     const validTransitions: Record<OrderStatus, OrderStatus[]> = {
       RECIBIDO: ['EN_PREPARACION', 'CANCELADO'],
       EN_PREPARACION: ['LISTO', 'CANCELADO'],
@@ -155,12 +191,10 @@ export class AppService implements OnModuleInit {
     order.status = status;
     const updatedOrder = await this.orderRepo.save(order);
 
-    // Publicar evento en el EventBroker
-    this.eventBroker.publish('order.status_updated', updatedOrder);
+    await this.eventBroker.publish('order.status_updated', updatedOrder);
 
-    // Cuando la cocina termina el pedido, notificar para despacho a delivery-service
     if (status === 'LISTO') {
-      this.eventBroker.publish('order.ready', updatedOrder);
+      await this.eventBroker.publish('order.ready', updatedOrder);
     }
 
     return updatedOrder;
@@ -171,6 +205,8 @@ export class AppService implements OnModuleInit {
     await this.orderItemRepo.clear();
     const deletedOrders = await this.orderRepo.count();
     await this.orderRepo.clear();
+    this.lastOrderMetrics = null;
+    this.lastOrderItemsInput = null;
     return {
       message: 'Base de datos de pedidos reseteada con éxito',
       deletedOrders,
@@ -178,3 +214,5 @@ export class AppService implements OnModuleInit {
     };
   }
 }
+
+
